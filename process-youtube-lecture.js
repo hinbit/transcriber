@@ -9,6 +9,8 @@ const { loadEnvFile } = require("./load-env");
 const PDF_PRINTER = "/snap/bin/chromium";
 const HANDOUT_MODEL = "gpt-5-mini";
 const FETCH_RETRY_COUNT = 3;
+const TARGET_PDF_PAGES = 4;
+const PDF_SCALE_STEPS = [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.72, 0.68];
 
 loadEnvFile();
 
@@ -37,6 +39,36 @@ function runCommand(command, args) {
     child.on("close", (code) => {
       if (code === 0) {
         resolve();
+        return;
+      }
+      reject(new Error(`${command} exited with code ${code}.${stderr ? `\n${stderr}` : ""}`));
+    });
+  });
+}
+
+function runCommandWithOutput(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: process.cwd(),
+      env: process.env
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+      process.stderr.write(chunk.toString());
+    });
+
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout);
         return;
       }
       reject(new Error(`${command} exited with code ${code}.${stderr ? `\n${stderr}` : ""}`));
@@ -279,13 +311,62 @@ async function generateHandoutHtml({ title, transcriptText, summaryText, apiKey 
 
 async function renderPdf(htmlPath, pdfPath) {
   await fsp.mkdir(path.dirname(pdfPath), { recursive: true });
-  await runCommand(PDF_PRINTER, [
-    "--headless",
-    "--disable-gpu",
-    "--no-sandbox",
-    `--print-to-pdf=${pdfPath}`,
-    `file://${htmlPath}`
-  ]);
+  const originalHtml = await fsp.readFile(htmlPath, "utf8");
+  const htmlDir = path.dirname(htmlPath);
+  const tempHtmlPath = path.join(
+    htmlDir,
+    `.${path.basename(htmlPath, path.extname(htmlPath))}.print-fit${path.extname(htmlPath)}`
+  );
+  const tempPdfPath = path.join(
+    path.dirname(pdfPath),
+    `.${path.basename(pdfPath, path.extname(pdfPath))}.tmp${path.extname(pdfPath)}`
+  );
+
+  let chosenScale = PDF_SCALE_STEPS[PDF_SCALE_STEPS.length - 1];
+  let chosenPages = null;
+
+  try {
+    for (const scale of PDF_SCALE_STEPS) {
+      const scaleStyle = `
+<style>
+  @media print {
+    html {
+      zoom: ${scale};
+    }
+  }
+</style>
+</head>`;
+      const scaledHtml = originalHtml.replace("</head>", scaleStyle);
+      await fsp.writeFile(tempHtmlPath, scaledHtml, "utf8");
+
+      await runCommand(PDF_PRINTER, [
+        "--headless",
+        "--disable-gpu",
+        "--no-sandbox",
+        `--print-to-pdf=${tempPdfPath}`,
+        `file://${tempHtmlPath}`
+      ]);
+
+      const pdfInfo = await runCommandWithOutput("pdfinfo", [tempPdfPath]);
+      const match = pdfInfo.match(/^Pages:\s+(\d+)/m);
+      const pageCount = match ? Number.parseInt(match[1], 10) : null;
+
+      chosenScale = scale;
+      chosenPages = pageCount;
+
+      if (pageCount !== null && pageCount <= TARGET_PDF_PAGES) {
+        break;
+      }
+    }
+
+    await fsp.rename(tempPdfPath, pdfPath);
+    console.log(
+      `PDF fit selected scale ${chosenScale}${chosenPages ? ` (${chosenPages} pages)` : ""}`
+    );
+  } finally {
+    await fsp.rm(tempHtmlPath, { force: true }).catch(() => {});
+    await fsp.rm(tempPdfPath, { force: true }).catch(() => {});
+  }
 }
 
 async function processLecture(url) {
