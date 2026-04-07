@@ -14,7 +14,7 @@ Node-based helpers for:
 - `transcribe.js`: splits an MP3 into 5-minute chunks and writes transcript + chunk summary to `output_text/`
 - `process-youtube-lecture.js`: full end-to-end flow from YouTube URL to MP3, transcript, HTML handout, and PDF
 - `process-local-lecture.js`: full end-to-end flow from a local audio file to MP3, transcript, HTML handout, and PDF
-- `test-sneior-transcribe.js`: example runner for the original sample lecture
+- `test-senior-transcribe.js`: example runner for the original sample lecture
 - `load-env.js`: lightweight `.env` loader with no external dependency
 
 ## Requirements

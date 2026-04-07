@@ -6,7 +6,7 @@
   "scripts": {
     "process:local": "node process-local-lecture.js",
     "process:youtube": "node process-youtube-lecture.js",
-    "test:senior-transcribe": "node test-sneior-transcribe.js",
+    "test:senior-transcribe": "node test-senior-transcribe.js",
     "transcribe": "node transcribe.js"
   }
 }
