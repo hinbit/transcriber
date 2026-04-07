@@ -1,0 +1,12 @@
+{
+  "name": "simple-transcriber",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Utility scripts for downloading YouTube audio as MP3.",
+  "scripts": {
+    "process:local": "node process-local-lecture.js",
+    "process:youtube": "node process-youtube-lecture.js",
+    "test:senior-transcribe": "node test-sneior-transcribe.js",
+    "transcribe": "node transcribe.js"
+  }
+}

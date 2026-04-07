@@ -1,0 +1,7 @@
+output/
+output_text/
+output_pdf/
+.env
+.venv/
+tmp/
+.codex/
