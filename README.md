@@ -27,7 +27,7 @@ Node-based helpers for:
 
 ## Environment Setup
 
-This project reads `OPENAI_API_KEY` from `.env`.
+This project reads configuration from `.env`.
 
 Files included:
 
@@ -38,9 +38,15 @@ Example `.env`:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
+TARGET_PDF_PAGES=4
 ```
 
 `.env` is ignored by git.
+
+Environment variables:
+
+- `OPENAI_API_KEY`: required for transcription and handout generation
+- `TARGET_PDF_PAGES`: optional target page count for generated PDFs, default `4`
 
 ## Install / Prepare
 
@@ -165,6 +171,7 @@ npm run transcribe -- "output/\"lecture title\".mp3"
 - The transcriber is configured for Hebrew audio.
 - The full lecture processor uses OpenAI to generate a polished Hebrew handout from the transcript.
 - PDF export uses Chromium headless print mode.
+- PDF export automatically shrinks print scale until the output fits within `TARGET_PDF_PAGES`.
 - If a lecture includes references to מדרש, the generated handout tries to surface them explicitly in the final HTML/PDF.
 
 ## Security

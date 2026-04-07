@@ -9,7 +9,7 @@ const { loadEnvFile } = require("./load-env");
 const PDF_PRINTER = "/snap/bin/chromium";
 const HANDOUT_MODEL = "gpt-5-mini";
 const FETCH_RETRY_COUNT = 3;
-const TARGET_PDF_PAGES = 4;
+const TARGET_PDF_PAGES = Number.parseInt(process.env.TARGET_PDF_PAGES || "4", 10);
 const PDF_SCALE_STEPS = [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.72, 0.68];
 
 loadEnvFile();
