@@ -256,3 +256,58 @@ const handout = await createFamilySummary({
 
 console.log(handout.html);
 ```
+
+## WhatsApp Voice Notes
+
+If your outer app receives a short WhatsApp voice note file, save it locally and pass the file path into `transcribeLocalFile`.
+
+Example with a local temp file:
+
+```js
+const fs = require("fs/promises");
+const path = require("path");
+const { transcribeLocalFile } = require("@hinbit/transcriber");
+
+async function transcribeWhatsappVoiceNote(audioBuffer, fileName = "voice.ogg") {
+  const tmpDir = path.resolve("tmp");
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const filePath = path.join(tmpDir, fileName);
+  await fs.writeFile(filePath, audioBuffer);
+
+  const result = await transcribeLocalFile(filePath, {
+    language: "he"
+  });
+
+  return result.transcriptText;
+}
+```
+
+Example when your app receives a downloadable audio URL:
+
+```js
+const fs = require("fs/promises");
+const path = require("path");
+const { transcribeLocalFile } = require("@hinbit/transcriber");
+
+async function transcribeWhatsappAudioFromUrl(audioUrl) {
+  const response = await fetch(audioUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download audio: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const filePath = path.resolve("tmp/whatsapp-voice.ogg");
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, Buffer.from(arrayBuffer));
+
+  const result = await transcribeLocalFile(filePath, {
+    language: "he"
+  });
+
+  return result.transcriptText;
+}
+```
+
+This works well for short recordings such as WhatsApp voice notes because the package already converts non-MP3 audio with `ffmpeg` before transcription.
