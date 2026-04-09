@@ -1,38 +1,36 @@
-# SimpleTranscriber
+# @hinbit/transcriber
 
-Node-based helpers for:
+`@hinbit/transcriber` is a Node.js library for:
 
-- downloading YouTube lectures as MP3
-- splitting long audio into 5-minute chunks with `ffmpeg`
-- transcribing Hebrew audio with the OpenAI API
-- generating family-friendly HTML handouts
-- exporting those handouts to PDF
+- transcribing local audio files
+- transcribing YouTube lectures
+- generating plain text summaries
+- generating family-oriented Hebrew summary handouts
 
-## Project Files
+It reuses the existing OpenAI, `ffmpeg`, `ffprobe`, `yt-dlp`, and Chromium-based flow already present in this project, but exposes it as a package you can import from other projects.
 
-- `download-youtube-mp3.js`: downloads a YouTube video as MP3 into `output/`
-- `transcribe.js`: splits an MP3 into 5-minute chunks and writes transcript + chunk summary to `output_text/`
-- `process-youtube-lecture.js`: full end-to-end flow from YouTube URL to MP3, transcript, HTML handout, and PDF
-- `process-local-lecture.js`: full end-to-end flow from a local audio file to MP3, transcript, HTML handout, and PDF
-- `test-senior-transcribe.js`: example runner for the original sample lecture
-- `load-env.js`: lightweight `.env` loader with no external dependency
+## Install
+
+Local package usage from another project:
+
+```bash
+npm install /path/to/SimpleTranscriber
+```
+
+Or if you publish it later:
+
+```bash
+npm install @hinbit/transcriber
+```
 
 ## Requirements
 
 - Node.js 20+
 - `ffmpeg`
 - `ffprobe`
-- local `yt-dlp` in `.venv/` or available globally
-- Chromium available at `/snap/bin/chromium` for PDF export
-
-## Environment Setup
-
-This project reads configuration from `.env`.
-
-Files included:
-
-- `.env`: local runtime file
-- `.env.example`: template you can copy from
+- `yt-dlp`
+- Chromium at `/snap/bin/chromium` if you want PDF output
+- `OPENAI_API_KEY`
 
 Example `.env`:
 
@@ -41,140 +39,220 @@ OPENAI_API_KEY=your_openai_api_key_here
 TARGET_PDF_PAGES=4
 ```
 
-`.env` is ignored by git.
+## Import
 
-Environment variables:
+CommonJS:
 
-- `OPENAI_API_KEY`: required for transcription and handout generation
-- `TARGET_PDF_PAGES`: optional target page count for generated PDFs, default `4`
-
-## Install / Prepare
-
-Create the local Python environment and install `yt-dlp`:
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install yt-dlp
+```js
+const {
+  transcribe,
+  transcribeLocalFile,
+  transcribeYoutube,
+  summarizeText,
+  createFamilySummary
+} = require("@hinbit/transcriber");
 ```
 
-Make sure `ffmpeg` is installed:
+ESM:
 
-```bash
-ffmpeg -version
-ffprobe -version
+```js
+import {
+  transcribe,
+  transcribeLocalFile,
+  transcribeYoutube,
+  summarizeText,
+  createFamilySummary
+} from "@hinbit/transcriber";
 ```
 
-## npm Scripts
+TypeScript:
 
-Install is not required for runtime because there are no npm dependencies right now, but `package.json` provides command aliases:
+```ts
+import { transcribeYoutube, summarizeText, type TranscriptionResult } from "@hinbit/transcriber";
 
-```bash
-npm run test:senior-transcribe
-npm run transcribe -- "output/some-file.mp3"
-npm run process:youtube -- "https://www.youtube.com/watch?v=VIDEO_ID"
-npm run process:local -- "tmp/lecture.mpeg"
+const result: TranscriptionResult = await transcribeYoutube("https://www.youtube.com/watch?v=VIDEO_ID");
+const summary = await summarizeText(result.transcriptText, { language: "he" });
 ```
 
-## Usage
+## CLI
 
-### 1. Download a lecture as MP3
-
-Direct Node usage:
+After install, you can also use the package as a command:
 
 ```bash
-node -e "const { downloadYoutubeAsMp3 } = require('./download-youtube-mp3'); downloadYoutubeAsMp3('https://www.youtube.com/watch?v=hzaklTHmofo').then(console.log)"
+hinbit-transcriber transcribe ./audio/lesson.wav --family-summary
+hinbit-transcriber transcribe "https://www.youtube.com/watch?v=VIDEO_ID"
+hinbit-transcriber summarize --file ./transcript.txt
+hinbit-transcriber family-summary --title "Pesach" --file ./transcript.txt --html ./out/pesach.html
 ```
 
-Output:
+## Package Maintenance
 
-- MP3 file in `output/`
+For local package validation:
 
-### 2. Transcribe an existing MP3
+```bash
+npm install
+npm run typecheck
+npm run publish:dry-run
+```
+
+The `prepublishOnly` hook runs both checks automatically before `npm publish`.
+
+## API
+
+### `transcribe(source, options)`
+
+Auto-detects whether `source` is a local file path or a YouTube URL.
+
+```js
+const result = await transcribe("tmp/lecture.mpeg", {
+  language: "he",
+  familySummary: true
+});
+```
+
+### `transcribeLocalFile(inputPath, options)`
+
+Converts non-MP3 files to MP3 when needed, then transcribes and summarizes.
+
+```js
+const result = await transcribeLocalFile("tmp/lecture.mpeg", {
+  outputDir: "output_text",
+  familySummary: true,
+  familySummaryHtmlPath: "output_text/lecture_family.html",
+  familySummaryPdfPath: "output_pdf/lecture.pdf"
+});
+```
+
+Returned fields include:
+
+- `mp3Path`
+- `transcriptText`
+- `summaryText`
+- `transcriptFile`
+- `summaryFile`
+- `chunkFiles`
+- `familySummary`
+
+### `transcribeYoutube(url, options)`
+
+Downloads the audio from YouTube and runs the same transcription flow.
+
+```js
+const result = await transcribeYoutube("https://www.youtube.com/watch?v=VIDEO_ID", {
+  familySummary: true
+});
+```
+
+### `summarizeText(text, options)`
+
+Generates a plain text summary from any transcript or free text.
+
+```js
+const summary = await summarizeText(transcriptText, {
+  language: "he",
+  style: "concise"
+});
+```
+
+Options:
+
+- `apiKey`
+- `language`
+- `style`: `concise` or `detailed`
+- `model`
+- `prompt`
+
+### `createFamilySummary(options)`
+
+Creates a family-oriented Hebrew handout HTML fragment and can optionally write HTML/PDF files.
+
+```js
+const familySummary = await createFamilySummary({
+  title: "שיעור לפסח",
+  transcriptText,
+  summaryText,
+  outputHtmlPath: "output_text/pesach_family.html",
+  outputPdfPath: "output_pdf/pesach_family.pdf"
+});
+```
+
+Returned fields include:
+
+- `title`
+- `summaryText`
+- `html`
+- `htmlPath` when requested
+- `pdfPath` when requested
+
+## Sample Code
+
+Runnable examples are included in [examples/local-file.js](/home/shaykid/Documents/Git/SimpleTranscriber/examples/local-file.js), [examples/youtube-link.js](/home/shaykid/Documents/Git/SimpleTranscriber/examples/youtube-link.js), and [examples/text-summary.js](/home/shaykid/Documents/Git/SimpleTranscriber/examples/text-summary.js).
+
+Run them with:
+
+```bash
+npm run example:local
+npm run example:youtube
+npm run example:summary
+```
+
+## Existing CLI scripts
+
+The old script workflows still work:
 
 ```bash
 npm run transcribe -- "output/lecture.mp3"
+npm run process:local -- "tmp/lecture.mpeg"
+npm run process:youtube -- "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-Outputs:
+## Suggested Usage In Another Project
 
-- `output_text/<lecture title>.txt`
-- `output_text/<lecture title>_summarize_text.txt`
+Simple transcript:
 
-The transcript is split into 5-minute chunks and each chunk gets:
+```js
+const { transcribe } = require("@hinbit/transcriber");
 
-- a verbatim Hebrew transcript
-- a short Hebrew topic summary
-
-### 3. Run the full YouTube-to-PDF flow
-
-```bash
-npm run process:youtube -- "https://www.youtube.com/watch?v=6XnlAhcgcZc"
+const result = await transcribe("/absolute/path/to/audio.mp3");
+console.log(result.transcriptText);
 ```
 
-This does all of the following:
+Transcript plus summary:
 
-1. downloads the lecture as MP3
-2. transcribes it in Hebrew
-3. generates a family-friendly HTML outline
-4. includes `מדרש/מקור שהוזכר` lines when the lecture references מדרש or חז"ל
-5. exports a PDF named after the lecture title
+```js
+const { transcribeLocalFile } = require("@hinbit/transcriber");
 
-Outputs:
-
-- `output/<lecture title>.mp3`
-- `output_text/<lecture title>.txt`
-- `output_text/<lecture title>_summarize_text.txt`
-- `output_text/<lecture title>_family_handout.html`
-- `output_pdf/<lecture title>.pdf`
-
-### 4. Run the full local-file-to-PDF flow
-
-```bash
-npm run process:local -- "tmp/7pes.mpeg"
+const result = await transcribeLocalFile("./recordings/lesson.wav");
+console.log(result.summaryText);
 ```
 
-This flow:
+YouTube lecture:
 
-1. converts the local file to MP3 if needed
-2. transcribes it in Hebrew
-3. generates the family handout HTML
-4. exports the PDF named after the lecture/audio title
+```js
+const { transcribeYoutube } = require("@hinbit/transcriber");
 
-## Example Runs
-
-Original sample lecture:
-
-```bash
-npm run test:senior-transcribe
+const result = await transcribeYoutube("https://www.youtube.com/watch?v=VIDEO_ID");
+console.log(result.transcriptFile);
 ```
 
-Process a new lecture directly from YouTube:
+Standalone summary:
 
-```bash
-npm run process:youtube -- "https://www.youtube.com/watch?v=kZ-PEj5bvog"
+```js
+const { summarizeText } = require("@hinbit/transcriber");
+
+const summary = await summarizeText("טקסט ארוך כאן", { language: "he" });
+console.log(summary);
 ```
 
-Process a local recording:
+Family handout:
 
-```bash
-npm run process:local -- "tmp/7pes.mpeg"
+```js
+const { createFamilySummary } = require("@hinbit/transcriber");
+
+const handout = await createFamilySummary({
+  title: "שיעור משפחתי",
+  transcriptText: "תמלול מלא כאן"
+});
+
+console.log(handout.html);
 ```
-
-Transcribe an existing local MP3 without redownloading:
-
-```bash
-npm run transcribe -- "output/\"lecture title\".mp3"
-```
-
-## Notes
-
-- The transcriber is configured for Hebrew audio.
-- The full lecture processor uses OpenAI to generate a polished Hebrew handout from the transcript.
-- PDF export uses Chromium headless print mode.
-- PDF export automatically shrinks print scale until the output fits within `TARGET_PDF_PAGES`.
-- If a lecture includes references to מדרש, the generated handout tries to surface them explicitly in the final HTML/PDF.
-
-## Security
-
-- Do not commit a real API key into `.env`.
-- If an API key was ever pasted into chat, terminal history, or committed anywhere, rotate it in OpenAI immediately.

@@ -5,3 +5,5 @@ output_pdf/
 .venv/
 tmp/
 .codex/
+node_modules/
+*.tgz

@@ -1,12 +1,69 @@
 {
-  "name": "simple-transcriber",
+  "name": "@hinbit/transcriber",
   "version": "1.0.0",
-  "private": true,
-  "description": "Utility scripts for downloading YouTube audio as MP3.",
+  "description": "Reusable transcription and summary library for local audio files and YouTube links.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "hinbit-transcriber": "./bin/hinbit-transcriber.js"
+  },
+  "exports": {
+    ".": {
+      "require": "./index.js",
+      "import": "./index.mjs",
+      "types": "./index.d.ts"
+    }
+  },
+  "files": [
+    "bin",
+    "index.js",
+    "index.d.ts",
+    "index.mjs",
+    "download-youtube-mp3.js",
+    "load-env.js",
+    "process-local-lecture.js",
+    "process-youtube-lecture.js",
+    "transcribe.js",
+    "README.md",
+    "examples"
+  ],
   "scripts": {
+    "build": "npm run typecheck",
+    "cli:help": "node bin/hinbit-transcriber.js help",
     "process:local": "node process-local-lecture.js",
     "process:youtube": "node process-youtube-lecture.js",
+    "publish:dry-run": "npm pack --dry-run",
+    "example:local": "node examples/local-file.js",
+    "example:youtube": "node examples/youtube-link.js",
+    "example:summary": "node examples/text-summary.js",
     "test:senior-transcribe": "node test-senior-transcribe.js",
-    "transcribe": "node transcribe.js"
+    "transcribe": "node transcribe.js",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run publish:dry-run"
+  },
+  "keywords": [
+    "transcription",
+    "youtube",
+    "openai",
+    "hebrew",
+    "summary"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hinbit/transcriber.git"
+  },
+  "homepage": "https://github.com/hinbit/transcriber#readme",
+  "bugs": {
+    "url": "https://github.com/hinbit/transcriber/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }
