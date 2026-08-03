@@ -9,9 +9,5 @@
     "checkJs": false,
     "skipLibCheck": true
   },
-  "include": [
-    "index.d.ts",
-    "examples/**/*.js",
-    "index.mjs"
-  ]
+  "include": ["index.d.ts", "examples/**/*.js"]
 }

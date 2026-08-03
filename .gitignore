@@ -1,9 +1,12 @@
-output/
-output_text/
-output_pdf/
+node_modules/
 .env
 .venv/
 tmp/
 .codex/
-node_modules/
+output/
+output_text/
+output_pdf/
+storage/
+*.log
 *.tgz
+.DS_Store
