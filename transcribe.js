@@ -5,6 +5,8 @@ const { spawn } = require("child_process");
 const { loadEnvFile } = require("./load-env");
 
 const CHUNK_SECONDS = 300;
+// Shorter than this and a chunk cannot hold speech; OpenAI rejects such files.
+const MIN_CHUNK_SECONDS = 1;
 const TRANSCRIPTION_MODEL = "gpt-4o-transcribe";
 const SUMMARY_MODEL = "gpt-5-mini";
 const FETCH_RETRY_COUNT = 3;
@@ -286,14 +288,34 @@ async function transcribeMp3(mp3Path, options = {}) {
   await fsp.mkdir(absoluteOutputDir, { recursive: true });
   await fsp.mkdir(cacheDir, { recursive: true });
 
-  const chunkFiles = await splitMp3IntoChunks(absoluteMp3Path, chunkDir);
+  const allChunkFiles = await splitMp3IntoChunks(absoluteMp3Path, chunkDir);
+
+  // ffmpeg's segment muxer emits a trailing fragment whenever the audio does not
+  // divide evenly — for a clip that is an exact multiple of CHUNK_SECONDS that
+  // fragment is milliseconds long. Sending it to OpenAI fails the whole run with
+  // "Audio file might be corrupted or unsupported", so drop chunks too short to
+  // hold speech. Index is preserved for timestamps by filtering before the loop.
+  const chunkDurations = new Map();
+  const chunkFiles = [];
+  for (const chunkPath of allChunkFiles) {
+    const seconds = await getAudioDurationSeconds(chunkPath);
+    if (seconds < MIN_CHUNK_SECONDS) {
+      console.log(
+        `Skipping ${path.basename(chunkPath)}: ${seconds.toFixed(3)}s is below the ${MIN_CHUNK_SECONDS}s minimum`
+      );
+      continue;
+    }
+    chunkDurations.set(chunkPath, seconds);
+    chunkFiles.push(chunkPath);
+  }
+
   const parts = [];
   const summaryLines = [];
 
   for (let index = 0; index < chunkFiles.length; index += 1) {
     const chunkPath = chunkFiles[index];
     const startSeconds = index * CHUNK_SECONDS;
-    const chunkDuration = await getAudioDurationSeconds(chunkPath);
+    const chunkDuration = chunkDurations.get(chunkPath);
     const endSeconds = startSeconds + chunkDuration;
     console.log(
       `Transcribing chunk ${index + 1}/${chunkFiles.length}: ${path.basename(chunkPath)}`
